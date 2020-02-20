@@ -104,6 +104,26 @@ def configure_lockin(
     lockin.auto_phase()
 
 
+def set_lockin_voltage(aux_out, voltage, readback=True, aux_in=None):
+    """Set voltage of lock-in amplifier auxiliary output.
+
+    Uses readback from a auxiliary input to set the output voltage. This emulates
+    a 4-wire sense configuration.
+
+    Parameters
+    ----------
+    aux_out : {1,2,3,4}
+        auxiliary output
+    voltage : float
+        output voltage
+    readback : Bool
+        update aux out using readback from an aux in
+    aux_in : {1,2,3,4}
+        auxiliary input for readback
+    """
+    pass
+
+
 def measure(wl):
     """Go to wavelength and measure data.
     
@@ -113,7 +133,13 @@ def measure(wl):
     Returns
     -------
     """
-    pass
+    resp = mono.set_wavelength(wl)
+    log_monochromator_response(resp)
+
+    parameters1 = (1, 2, 5, 6, 7, 8)
+    parameters2 = (3, 4, 9, 10, 11)
+    resp = lockin.measure_multiple(parameters1)
+    resp = lockin.measure_multiple(parameters2)
 
 
 def scan(start_wl=350, stop_wl=1100, step_wl=20, averages=1):
