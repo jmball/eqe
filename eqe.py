@@ -81,16 +81,26 @@ def configure_lockin(
     input_configuration=0,
     input_coupling=0,
     ground_shielding=1,
-    notch_filter_status=3,
+    line_notch_filter_status=3,
     ref_source=0,
     detection_harmonic=1,
     ref_trigger=1,
     ref_freq=1000,
+    sensitivity=26,
+    reserve_mode=1,
+    time_constant=8,
+    low_pass_filter_slope=1,
+    sync_status=0,
+    ch1_display=1,
+    ch2_display=1,
+    ch1_ratio=0,
+    ch2_ratio=0,
 ):
     """Configure lock-in amplifier settings.
 
     Parameters
     ----------
+    
 
     Returns
     -------
@@ -98,23 +108,36 @@ def configure_lockin(
     resp = lockin.set_input_configuration(input_configuration)
     resp = lockin.set_input_coupling(input_coupling)
     resp = lockin.set_input_shield_gnd(ground_shielding)
-    resp = lockin.set_line_notch_status(notch_filter_status)
+    resp = lockin.set_line_notch_status(line_notch_filter_status)
     resp = lockin.set_ref_source(ref_source)
     resp = lockin.set_detection_harmonic(detection_harmonic)
-    lockin.set_reference_trigger(ref_trigger)
-    lockin.set_ref_freq(ref_freq)
-    lockin.auto_phase()
+    resp = lockin.set_reference_trigger(ref_trigger)
+    resp = lockin.set_ref_freq(ref_freq)
+    resp = lockin.set_sensitivity(sensitivity)
+    resp = lockin.set_reserve(reserve_mode)
+    resp = lockin.set_time_constant(time_constant)
+    resp = lockin.set_lp_filter_slope(low_pass_filter_slope)
+    resp = lockin.set_sync_status(sync_status)
+    resp = lockin.set_display(1, ch1_display, ch1_ratio)
+    resp = lockin.set_display(2, ch2_display, ch2_ratio)
+    
 
-
-def measure(wl):
+def measure(wl, auto_gain=True, auto_gain_method="user"):
     """Go to wavelength and measure data.
     
     Paremeters
     ----------
+    auto_gain_method : {"instr", "user"}
+        If auto_gain is True, method for automatically finding the correct gain setting.
+        "instr" uses the instrument auto-gain feature, "user" implements a user-defined
+        algorithm.
 
     Returns
     -------
     """
+    if auto_gain is True:
+        if auto_gain_method == "instr":
+            lock_in.auto_gain()
     pass
 
 
