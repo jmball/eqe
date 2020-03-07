@@ -22,10 +22,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
-# instantiate instrument objects
+# instantiate instrument objects and connect
 lockin = sr830.sr830(address="ASRL2::INSTR", output_interface=0, err_check=False)
+lockin.connect()
 lockin_sn = lockin.serial_number
-mono = sp2150("ASRL5::INSTR")
+mono = sp2150(address="ASRL5::INSTR")
+mono.connect()
 logger.info(
     f"{lockin.manufacturer}, {lockin.model}, {lockin_sn}, {lockin.firmware_version} connected!"
 )
@@ -116,7 +118,7 @@ def measure(wl):
     pass
 
 
-def scan(start_wl=350, stop_wl=1100, step_wl=20, averages=1):
+def scan(start_wl=350, stop_wl=1100, step_wl=10, averages=1):
     """Perform a wavelength scan measurement.
     
     Paremeters
