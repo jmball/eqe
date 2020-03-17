@@ -5,6 +5,7 @@ import logging
 import os
 import pathlib
 import sys
+import time
 
 import numpy as np
 
@@ -317,7 +318,7 @@ def measure(
 
     if auto_gain is True:
         if auto_gain_method == "instr":
-            lock_in.auto_gain()
+            lockin.auto_gain()
         elif auto_gain_method == "user":
             # TODO: finish auto-gain algorithm
             R = lockin.measure(3)
@@ -325,6 +326,10 @@ def measure(
             msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
             logger.error(msg)
             raise ValueError(msg)
+
+    # wait to settle
+    time.sleep(5 * lockin.get_time_constant())
+
     data1 = lockin.measure_multiple([1, 2, 5, 6, 7, 8])
     data2 = lockin.measure_multiple([3, 4, 9, 10, 11])
     return data1 + data2
@@ -360,7 +365,8 @@ def scan(
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
     """
-    resp = lockin.set_sensitivity(sensitivity)
+    resp = lockin.set_sensitivity(0)
+    log_lockin_response(resp)
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, ret_step=True)
     for wl in wls:
