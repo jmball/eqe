@@ -1,5 +1,6 @@
 """Measure external quantum efficiency"""
 
+import configparser
 import logging
 import os
 import pathlib
@@ -27,7 +28,7 @@ logger = logging.getLogger()
 
 def log_monochromator_response(resp):
     """Log monochromator response.
-    
+
     Parameters
     ----------
     resp : str
@@ -45,7 +46,7 @@ def log_lockin_response(resp):
         monochromator command response
     """
     logger.debug(
-        f"{lockin_sn}, cmd: {resp['cmd']}, resp: {resp['resp']}, fmt_resp: {resp['value']}, warning: {resp['warning']}, error: {resp['error']}
+        f"{lockin_sn}, cmd: {resp['cmd']}, resp: {resp['resp']}, fmt_resp: {resp['value']}, warning: {resp['warning']}, error: {resp['error']}"
     )
 
 
@@ -321,7 +322,7 @@ def measure(
             # TODO: finish auto-gain algorithm
             R = lockin.measure(3)
         else:
-            msg = f"Invalid auto-gain method: {auto_gain_method}. Must be \"instr\" or \"user\"."
+            msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
             logger.error(msg)
             raise ValueError(msg)
     data1 = lockin.measure_multiple([1, 2, 5, 6, 7, 8])
@@ -336,7 +337,7 @@ def scan(
     grating_change_wls=None,
     filter_change_wls=None,
     auto_gain=True,
-    auto_gain_method="user"
+    auto_gain_method="user",
 ):
     """Perform a wavelength scan measurement.
 
@@ -366,13 +367,69 @@ def scan(
         data = measure(wl, grating_change_wls, filter_change_wls, True, "user")
 
 
+# load configuration info
+config = configparser.ConfigParser()
+config.read("config.ini")
+
+# paths
+save_folder = config["paths"]["save_folder"]
+ref_eqe_path = config["paths"]["ref_eqe_path"]
+ref_spectrum_path = config["paths"]["ref_spectrum_path"]
+
+# experiment
+calibrate = bool(config["experiment"]["calibrate"])
+device_id = config["experiment"]["device_id"]
+start_wl = float(config["experiment"]["start_wl"])
+end_wl = float(config["experiment"]["end_wl"])
+num_points = int(config["experiment"]["num_points"])
+
+# lock-in amplifier
+lia_address = config["lia"]["address"]
+lia_output_interface = int(config["lia"]["output_interface"])
+lia_input_configuration = int(config["lia"]["input_configuration"])
+lia_input_coupling = int(config["lia"]["input_coupling"])
+lia_ground_shielding = int(config["lia"]["ground_shielding"])
+lia_line_notch_filter_status = int(config["lia"]["line_notch_filter_status"])
+lia_ref_source = int(config["lia"]["ref_source"])
+lia_detection_harmonic = int(config["lia"]["detection_harmonic"])
+lia_ref_trigger = int(config["lia"]["ref_trigger"])
+lia_ref_freq = int(config["lia"]["ref_freq"])
+lia_sensitivity = int(config["lia"]["sensitivity"])
+lia_reserve_mode = int(config["lia"]["reserve_mode"])
+lia_time_constant = int(config["lia"]["time_constant"])
+lia_low_pass_filter_slope = int(config["lia"]["low_pass_filter_slope"])
+lia_sync_status = int(config["lia"]["sync_status"])
+lia_ch1_display = int(config["lia"]["ch2_display"])
+lia_ch2_display = int(config["lia"]["ch2_display"])
+lia_ch1_ratio = int(config["lia"]["ch1_ratio"])
+lia_ch2_ratio = int(config["lia"]["ch2_ratio"])
+lia_auto_gain = int(config["lia"]["auto_gain"])
+lia_auto_gain_method = config["lia"]["auto_gain_method"]
+
+# monochromator
+mono_address = config["monochromator"]["address"]
+mono_grating_change_wls = config["monochromator"]["grating_change_wls"]
+mono_filter_change_wls = config["monochromator"]["filter_change_wls"]
+mono_scan_speed = int(config["monochromator"]["scan_speed"])
+
 # instantiate instrument objects and connect
-lockin = sr830.sr830(address="ASRL2::INSTR", output_interface=0, err_check=False)
+lockin = sr830.sr830(address=lia_address, output_interface=0, err_check=False)
 lockin.connect()
 lockin_sn = lockin.serial_number
-mono = sp2150.sp2150(address="ASRL5::INSTR")
+mono = sp2150.sp2150(address=mono_address)
 mono.connect()
 logger.info(
     f"{lockin.manufacturer}, {lockin.model}, {lockin_sn}, {lockin.firmware_version} connected!"
 )
-scan(start_wl, end_wl, num_points, grating_change_wls, filter_change_wls, auto_gain,auto_gain_method)
+
+# run scan
+scan(
+    start_wl,
+    end_wl,
+    num_points,
+    mono_grating_change_wls,
+    mono_filter_change_wls,
+    lia_auto_gain,
+    lia_auto_gain_method,
+)
+
