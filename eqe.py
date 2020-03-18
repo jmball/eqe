@@ -1,5 +1,6 @@
 """Measure external quantum efficiency"""
 
+import csv
 import configparser
 import logging
 import os
@@ -8,6 +9,8 @@ import sys
 import time
 
 import numpy as np
+import scipy as sp
+from scipy.interpolate import interp1d
 
 # insert parent folder containing instrument libraries into path
 cwd = pathlib.Path.cwd()
@@ -322,6 +325,7 @@ def measure(
         elif auto_gain_method == "user":
             # TODO: finish auto-gain algorithm
             R = lockin.measure(3)
+            sensitivity = lockin.get_sensitivity()
         else:
             msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
             logger.error(msg)
@@ -332,10 +336,19 @@ def measure(
 
     data1 = lockin.measure_multiple([1, 2, 5, 6, 7, 8])
     data2 = lockin.measure_multiple([3, 4, 9, 10, 11])
-    return data1 + data2
+    ratio = data2[0] / data1[2]
+    data = list(data1 + data2)
+    data.insert(len(data), ratio)
+    return data
 
 
 def scan(
+    save_folder,
+    calibration,
+    device_id=None,
+    ref_measurement_name=None,
+    ref_eqe_path=None,
+    ref_spectrum_path=None,
     start_wl=350,
     end_wl=1100,
     num_points=76,
@@ -369,8 +382,48 @@ def scan(
     log_lockin_response(resp)
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, ret_step=True)
-    for wl in wls:
-        data = measure(wl, grating_change_wls, filter_change_wls, True, "user")
+
+    i = 0
+    if calibrate is True:
+        save_path = save_folder.joinpath(f"reference_{i}.txt")
+        while save_path.exists():
+            i += 1
+            save_path = save_folder.joinpath(f"reference_{i}.txt")
+    else:
+        save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
+        while save_path.exists():
+            i += 1
+            save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
+        ref_eqe = np.genfromtxt(ref_eqe_path, delimiter="\t", skip_header=1)
+        ref_measurement = np.genfromtxt(
+            save_folder.joinpath(ref_measurement_name), delimiter="\t", skip_header=1
+        )
+        # interpolate reference eqe spectrum and measurement data
+        f_ref_eqe_spectrum = sp.interpolate.interp1d(
+            ref_eqe[:, 0], ref_eqe[:, 1], kind="cubic", bounds_error=False, fill_value=0
+        )
+        f_ref_measurement = sp.interpolate.interp1d(
+            ref_measurement[:, 0],
+            ref_measurement[:, -1],
+            kind="cubic",
+            bounds_error=False,
+            fill_value=0,
+        )
+
+    with open(save_path, "a", newline="\n") as f:
+        writer = csv.writer(f, delimiter="\t")
+        for wl in wls:
+            data = list(
+                measure(wl, grating_change_wls, filter_change_wls, True, "user")
+            )
+            data.insert(0, wl)
+            if calibrate is not True:
+                ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
+                ref_measurement_at_wl = f_ref_measurement(wl)
+                eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
+                data.insert(len(data), eqe)
+            writer.writerow(data)
+            print(data)
 
 
 # load configuration info
@@ -378,9 +431,10 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 # paths
-save_folder = config["paths"]["save_folder"]
-ref_eqe_path = config["paths"]["ref_eqe_path"]
-ref_spectrum_path = config["paths"]["ref_spectrum_path"]
+save_folder = pathlib.Path(config["paths"]["save_folder"])
+ref_measurement_name = config["paths"]["ref_measurement_name"]
+ref_eqe_path = pathlib.Path(config["paths"]["ref_eqe_path"])
+ref_spectrum_path = pathlib.Path(config["paths"]["ref_spectrum_path"])
 
 # experiment
 calibrate = bool(config["experiment"]["calibrate"])
