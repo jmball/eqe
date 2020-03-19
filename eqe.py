@@ -437,7 +437,13 @@ ref_eqe_path = pathlib.Path(config["paths"]["ref_eqe_path"])
 ref_spectrum_path = pathlib.Path(config["paths"]["ref_spectrum_path"])
 
 # experiment
-calibrate = bool(config["experiment"]["calibrate"])
+calibrate = config["experiment"]["calibrate"]
+if calibrate == "True" or calibrate == "False":
+    calibrate = bool(calibrate)
+else:
+    raise ValueError(
+        f"Invalid value for calibrate: '{calibrate}'. Must be either 'True' or 'False'."
+    )
 device_id = config["experiment"]["device_id"]
 start_wl = float(config["experiment"]["start_wl"])
 end_wl = float(config["experiment"]["end_wl"])
