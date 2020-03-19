@@ -472,8 +472,28 @@ def scan(
 
     with open(save_path, "a", newline="\n") as f:
         writer = csv.writer(f, delimiter="\t")
+        header = [
+            "timestamp (s)",
+            "wavelength (nm)",
+            "X (V)",
+            "Y (V)",
+            "Aux In 1 (V)",
+            "Aux In 2 (V)",
+            "Aux In 3 (V)",
+            "Aux In 4 (V)",
+            "R (V)",
+            "Phase (deg)",
+            "Freq (Hz)",
+            "Ch1 display",
+            "Ch2 display",
+            "R/Aux In 1",
+        ]
+        if calibrate is False:
+            header.insert(len(header), "EQE")
+        writer.writerow(header)
         for wl in wls:
             for i in range(averages):
+                timestamp = time.time()
                 data = list(
                     measure(
                         wl,
@@ -484,6 +504,7 @@ def scan(
                     )
                 )
                 data.insert(0, wl)
+                data.insert(0, timestamp)
                 if calibrate is not True:
                     ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
                     ref_measurement_at_wl = f_ref_measurement(wl)
