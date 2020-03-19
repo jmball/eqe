@@ -46,9 +46,7 @@ def log_lockin_response(resp):
     resp : str
         monochromator command response
     """
-    logger.debug(
-        f"{lockin_sn}, cmd: {resp['cmd']}, resp: {resp['resp']}, fmt_resp: {resp['value']}, warning: {resp['warning']}, error: {resp['error']}"
-    )
+    logger.debug(f"{lockin_sn}, {resp}")
 
 
 def configure_monochromator(scan_speed=1000):
@@ -253,36 +251,50 @@ def configure_lockin(
     Returns
     -------
     """
-    resp = lockin.set_input_configuration(input_configuration)
-    log_lockin_response(resp)
-    resp = lockin.set_input_coupling(input_coupling)
-    log_lockin_response(resp)
-    resp = lockin.set_input_shield_gnd(ground_shielding)
-    log_lockin_response(resp)
-    resp = lockin.set_line_notch_status(line_notch_filter_status)
-    log_lockin_response(resp)
-    resp = lockin.set_ref_source(ref_source)
-    log_lockin_response(resp)
-    resp = lockin.set_detection_harmonic(detection_harmonic)
-    log_lockin_response(resp)
-    resp = lockin.set_reference_trigger(ref_trigger)
-    log_lockin_response(resp)
-    resp = lockin.set_ref_freq(ref_freq)
-    log_lockin_response(resp)
-    resp = lockin.set_sensitivity(sensitivity)
-    log_lockin_response(resp)
-    resp = lockin.set_reserve(reserve_mode)
-    log_lockin_response(resp)
-    resp = lockin.set_time_constant(time_constant)
-    log_lockin_response(resp)
-    resp = lockin.set_lp_filter_slope(low_pass_filter_slope)
-    log_lockin_response(resp)
-    resp = lockin.set_sync_status(sync_status)
-    log_lockin_response(resp)
-    resp = lockin.set_display(1, ch1_display, ch1_ratio)
-    log_lockin_response(resp)
-    resp = lockin.set_display(2, ch2_display, ch2_ratio)
-    log_lockin_response(resp)
+    lockin.set_input_configuration(input_configuration)
+    log_lockin_response(f"set_input_configuration({input_configuration})")
+
+    lockin.set_input_coupling(input_coupling)
+    log_lockin_response(f"set_input_coupling({input_coupling})")
+
+    lockin.set_input_shield_gnd(ground_shielding)
+    log_lockin_response(f"set_input_shield_gnd({ground_shielding})")
+
+    lockin.set_line_notch_status(line_notch_filter_status)
+    log_lockin_response(f"set_line_notch_status({line_notch_filter_status})")
+
+    lockin.set_ref_source(ref_source)
+    log_lockin_response(f"set_ref_source({ref_source})")
+
+    lockin.set_detection_harmonic(detection_harmonic)
+    log_lockin_response(f"set_detection_harmonic({detection_harmonic})")
+
+    lockin.set_reference_trigger(ref_trigger)
+    log_lockin_response(f"set_reference_trigger({ref_trigger})")
+
+    lockin.set_ref_freq(ref_freq)
+    log_lockin_response(f"set_ref_freq({ref_freq})")
+
+    lockin.set_sensitivity(sensitivity)
+    log_lockin_response(f"set_sensitivity({sensitivity})")
+
+    lockin.set_reserve(reserve_mode)
+    log_lockin_response(f"set_reserve({reserve_mode})")
+
+    lockin.set_time_constant(time_constant)
+    log_lockin_response(f"set_time_constant({time_constant})")
+
+    lockin.set_lp_filter_slope(low_pass_filter_slope)
+    log_lockin_response(f"set_lp_filter_slope({low_pass_filter_slope})")
+
+    lockin.set_sync_status(sync_status)
+    log_lockin_response(f"set_sync_status({sync_status})")
+
+    lockin.set_display(1, ch1_display, ch1_ratio)
+    log_lockin_response(f"set_display(1, {ch1_display}, {ch1_ratio})")
+
+    lockin.set_display(2, ch2_display, ch2_ratio)
+    log_lockin_response(f"set_display(2, {ch2_display}, {ch2_ratio})")
 
 
 def measure(
@@ -320,8 +332,20 @@ def measure(
         if auto_gain_method == "instr":
             lockin.auto_gain()
         elif auto_gain_method == "user":
-            # TODO: finish auto-gain algorithm
-            R = lockin.measure(3)
+            gain_set = False
+            while not gain_set:
+                sensitivity = lockin.get_sensitivity()
+                sensitivity_int = sensitivities.index(sensitivity)
+                time.sleep(5 * lockin.get_time_constant())
+                R = lockin.measure(3)
+                if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
+                    new_sensitivity = sensitivity_int + 1
+                elif (R <= 0.1 * sensitivity) and (sensitivity_int > 0):
+                    new_sensitivity = sensitivity_int - 1
+                else:
+                    new_sensitivity = sensitivity_int
+                    gain_set = True
+                lockin.set_sensitivity(new_sensitivity)
         else:
             msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
             logger.error(msg)
@@ -422,6 +446,8 @@ mono_scan_speed = int(config["monochromator"]["scan_speed"])
 lockin = sr830.sr830(address=lia_address, output_interface=0, err_check=False)
 lockin.connect()
 lockin_sn = lockin.serial_number
+sensitivities = lockin.sensitivities
+time_constants = lockin.time_constants
 mono = sp2150.sp2150(address=mono_address)
 mono.connect()
 logger.info(
@@ -439,3 +465,6 @@ scan(
     lia_auto_gain_method,
 )
 
+# disconnect instruments
+lockin.disconnect()
+mono.disconnect()
