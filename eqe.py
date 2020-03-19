@@ -433,8 +433,8 @@ def scan(
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
     """
-    lockin.set_sensitivity(0)
-    log_lockin_response(f"set_sensitivity(0)")
+    lockin.set_sensitivity(26)
+    log_lockin_response(f"set_sensitivity(26)")
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, retstep=True)
 
