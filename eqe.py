@@ -12,13 +12,16 @@ import scipy as sp
 from scipy.interpolate import interp1d
 
 # set up logger
+file_handler = logging.FileHandler(f"C:/eqe/logs/{int(time.time())}.log")
 console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(level=logging.INFO)
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s|%(name)s|%(levelname)s|%(message)s",
-    handlers=[console_handler],
+    handlers=[console_handler, file_handler],
 )
 logger = logging.getLogger()
+
 
 # insert parent folder containing instrument libraries into path
 cwd = pathlib.Path.cwd()
@@ -437,9 +440,13 @@ def scan(
     log_lockin_response(f"set_sensitivity(26)")
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, retstep=True)
-
     logger.debug(f"Wavelengths: {wls}")
     logger.debug(f"Wavelength step: {dwl}")
+
+    # get config info for data files
+    with open("config.ini") as f:
+        config_header = f.readlines()
+    config_header_len = len(config_header)
 
     i = 0
     if calibrate is True:
@@ -447,29 +454,35 @@ def scan(
         while save_path.exists():
             i += 1
             save_path = save_folder.joinpath(f"reference_{i}.txt")
-            print(i)
     else:
         save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
         while save_path.exists():
             i += 1
             save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
-            print(i)
         ref_eqe = np.genfromtxt(ref_eqe_path, delimiter="\t", skip_header=1)
         ref_measurement = np.genfromtxt(
-            save_folder.joinpath(ref_measurement_name), delimiter="\t", skip_header=1
+            save_folder.joinpath(ref_measurement_name),
+            delimiter="\t",
+            skip_header=config_header_len + 2,
         )
         # interpolate reference eqe spectrum and measurement data
         f_ref_eqe_spectrum = sp.interpolate.interp1d(
             ref_eqe[:, 0], ref_eqe[:, 1], kind="cubic", bounds_error=False, fill_value=0
         )
         f_ref_measurement = sp.interpolate.interp1d(
-            ref_measurement[:, 0],
+            ref_measurement[:, 1],
             ref_measurement[:, -1],
             kind="cubic",
             bounds_error=False,
             fill_value=0,
         )
 
+    # write config info to data file
+    with open(save_path, "w", newline="\n") as f:
+        f.writelines(config_header)
+        f.writelines("\n")
+
+    # scan through wavelengths and append data to file
     with open(save_path, "a", newline="\n") as f:
         writer = csv.writer(f, delimiter="\t")
         header = [
@@ -505,7 +518,7 @@ def scan(
                 )
                 data.insert(0, wl)
                 data.insert(0, timestamp)
-                if calibrate is not True:
+                if calibrate is False:
                     ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
                     ref_measurement_at_wl = f_ref_measurement(wl)
                     eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
@@ -525,6 +538,9 @@ if save_folder.exists() is False:
 ref_measurement_name = config["paths"]["ref_measurement_name"]
 ref_eqe_path = pathlib.Path(config["paths"]["ref_eqe_path"])
 ref_spectrum_path = pathlib.Path(config["paths"]["ref_spectrum_path"])
+log_folder = pathlib.Path(config["paths"]["log_folder"])
+if log_folder.exists() is False:
+    log_folder.mkdir(parents=True)
 
 logger.debug(f"Save folder: {save_folder}")
 logger.debug(f"Ref measurement name: {ref_measurement_name}")
@@ -533,8 +549,10 @@ logger.debug(f"Ref spectrum path: {ref_spectrum_path}")
 
 # experiment
 calibrate = config["experiment"]["calibrate"]
-if calibrate == "True" or calibrate == "False":
-    calibrate = bool(calibrate)
+if calibrate == "True":
+    calibrate = True
+elif calibrate == "False":
+    calibrate = False
 else:
     raise ValueError(
         f"Invalid value for calibrate: '{calibrate}'. Must be either 'True' or 'False'."
@@ -664,10 +682,10 @@ configure_monochromator(scan_speed=mono_scan_speed)
 scan(
     save_folder=save_folder,
     calibration=calibrate,
-    device_id=None,
-    ref_measurement_name=None,
-    ref_eqe_path=None,
-    ref_spectrum_path=None,
+    device_id=device_id,
+    ref_measurement_name=ref_measurement_name,
+    ref_eqe_path=ref_eqe_path,
+    ref_spectrum_path=ref_spectrum_path,
     start_wl=start_wl,
     end_wl=end_wl,
     num_points=num_points,
@@ -680,3 +698,8 @@ scan(
 # disconnect instruments
 lockin.disconnect()
 mono.disconnect()
+sr830.rm.close()
+
+# close log file
+
+file_handler.close()
