@@ -392,6 +392,7 @@ def scan(
     start_wl=350,
     end_wl=1100,
     num_points=76,
+    averages=1,
     grating_change_wls=None,
     filter_change_wls=None,
     auto_gain=True,
@@ -401,12 +402,26 @@ def scan(
 
     Paremeters
     ----------
+    save_folder : Path
+        Folder used for saving the measurement data file.
+    calibration : bool
+        Whether or not measurement should be interpreted as a calibration run.
+    device_id : str
+        Device identifier used for file name.
+    ref_measurement_name : str
+        Name of data file containing measurement data of the reference diode.
+    ref_eqe_path : str
+        Path to EQE calibration data for the reference diode.
+    ref_spectrum_path : str
+        Path to reference spectrum to use in an integrated Jsc calculation.
     start_wl : int or float
         Start wavelength in nm.
     end_wl : int or float
         End wavelength in nm
     num_points : int
         Number of wavelengths in scan
+    averages : int
+        Number of repeat measurements at each wavelength.
     grating_change_wls : list or tuple of int or float
         Wavelength in nm at which to change to the grating.
     filter_change_wls : list or tuple of int or float
@@ -420,10 +435,6 @@ def scan(
     """
     lockin.set_sensitivity(0)
     log_lockin_response(f"set_sensitivity(0)")
-
-    print(start_wl)
-    print(end_wl)
-    print(num_points)
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, retstep=True)
 
@@ -462,17 +473,24 @@ def scan(
     with open(save_path, "a", newline="\n") as f:
         writer = csv.writer(f, delimiter="\t")
         for wl in wls:
-            data = list(
-                measure(wl, grating_change_wls, filter_change_wls, auto_gain, auto_gain_method)
-            )
-            data.insert(0, wl)
-            if calibrate is not True:
-                ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
-                ref_measurement_at_wl = f_ref_measurement(wl)
-                eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
-                data.insert(len(data), eqe)
-            writer.writerow(data)
-            logger.info(f"Data: {data}")
+            for i in range(averages):
+                data = list(
+                    measure(
+                        wl,
+                        grating_change_wls,
+                        filter_change_wls,
+                        auto_gain,
+                        auto_gain_method,
+                    )
+                )
+                data.insert(0, wl)
+                if calibrate is not True:
+                    ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
+                    ref_measurement_at_wl = f_ref_measurement(wl)
+                    eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
+                    data.insert(len(data), eqe)
+                writer.writerow(data)
+                logger.info(f"Data: {data}")
 
 
 # load configuration info
@@ -504,12 +522,14 @@ device_id = config["experiment"]["device_id"]
 start_wl = float(config["experiment"]["start_wl"])
 end_wl = float(config["experiment"]["end_wl"])
 num_points = int(config["experiment"]["num_points"])
+averages = int(config["experiment"]["averages"])
 
 logger.debug(f"Calibrate: {calibrate}")
 logger.debug(f"Device ID: {device_id}")
 logger.debug(f"Start WL: {start_wl}")
 logger.debug(f"End WL: {end_wl}")
 logger.debug(f"Number of wl points: {num_points}")
+logger.debug(f"Averages: {averages}")
 
 # lock-in amplifier
 lia_address = config["lia"]["address"]
