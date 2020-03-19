@@ -11,14 +11,6 @@ import numpy as np
 import scipy as sp
 from scipy.interpolate import interp1d
 
-# insert parent folder containing instrument libraries into path
-cwd = pathlib.Path.cwd()
-sys.path.insert(0, str(cwd.parent))
-
-# import instrument libraries
-import sr830
-import sp2150
-
 # set up logger
 console_handler = logging.StreamHandler(sys.stdout)
 logging.basicConfig(
@@ -27,6 +19,28 @@ logging.basicConfig(
     handlers=[console_handler],
 )
 logger = logging.getLogger()
+
+# insert parent folder containing instrument libraries into path
+cwd = pathlib.Path.cwd()
+logger.debug(f"cwd: {cwd}")
+parent = cwd.parent
+logger.debug(f"parent: {parent}")
+sr830_path = parent.joinpath("SRS_SR830")
+if sr830_path.exists() is True:
+    logger.debug(f"{sr830_path} exists")
+else:
+    logger.debug(f"{sr830_path} doesn't exist")
+sp2150_path = parent.joinpath("ActonSP2150")
+if sp2150_path.exists() is True:
+    logger.debug(f"{sp2150_path} exists")
+else:
+    logger.debug(f"{sp2150_path} doesn't exist")
+sys.path.insert(0, str(sr830_path))
+sys.path.insert(0, str(sp2150_path))
+
+# import instrument libraries
+import sr830
+import sp2150
 
 
 def log_monochromator_response(resp):
@@ -268,7 +282,7 @@ def configure_lockin(
     lockin.set_ref_source(ref_source)
     log_lockin_response(f"set_ref_source({ref_source})")
 
-    lockin.set_detection_harmonic(detection_harmonic)
+    lockin.set_harmonic(detection_harmonic)
     log_lockin_response(f"set_detection_harmonic({detection_harmonic})")
 
     lockin.set_reference_trigger(ref_trigger)
@@ -280,7 +294,7 @@ def configure_lockin(
     lockin.set_sensitivity(sensitivity)
     log_lockin_response(f"set_sensitivity({sensitivity})")
 
-    lockin.set_reserve(reserve_mode)
+    lockin.set_reserve_mode(reserve_mode)
     log_lockin_response(f"set_reserve({reserve_mode})")
 
     lockin.set_time_constant(time_constant)
@@ -359,11 +373,12 @@ def measure(
     # wait to settle
     time.sleep(5 * lockin.get_time_constant())
 
-    data1 = lockin.measure_multiple([1, 2, 5, 6, 7, 8])
-    data2 = lockin.measure_multiple([3, 4, 9, 10, 11])
+    data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
+    data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
     ratio = data2[0] / data1[2]
-    data = list(data1 + data2)
+    data = data1 + data2
     data.insert(len(data), ratio)
+    logger.debug(f"Measure: {data}")
     return data
 
 
@@ -406,7 +421,11 @@ def scan(
     lockin.set_sensitivity(0)
     log_lockin_response(f"set_sensitivity(0)")
 
-    wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, ret_step=True)
+    print(start_wl)
+    print(end_wl)
+    print(num_points)
+
+    wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, retstep=True)
 
     logger.debug(f"Wavelengths: {wls}")
     logger.debug(f"Wavelength step: {dwl}")
@@ -417,11 +436,13 @@ def scan(
         while save_path.exists():
             i += 1
             save_path = save_folder.joinpath(f"reference_{i}.txt")
+            print(i)
     else:
         save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
         while save_path.exists():
             i += 1
             save_path = save_folder.joinpath(f"{device_id}_{i}.txt")
+            print(i)
         ref_eqe = np.genfromtxt(ref_eqe_path, delimiter="\t", skip_header=1)
         ref_measurement = np.genfromtxt(
             save_folder.joinpath(ref_measurement_name), delimiter="\t", skip_header=1
@@ -442,7 +463,7 @@ def scan(
         writer = csv.writer(f, delimiter="\t")
         for wl in wls:
             data = list(
-                measure(wl, grating_change_wls, filter_change_wls, True, "user")
+                measure(wl, grating_change_wls, filter_change_wls, auto_gain, auto_gain_method)
             )
             data.insert(0, wl)
             if calibrate is not True:
@@ -460,6 +481,8 @@ config.read("config.ini")
 
 # paths
 save_folder = pathlib.Path(config["paths"]["save_folder"])
+if save_folder.exists() is False:
+    save_folder.mkdir(parents=True)
 ref_measurement_name = config["paths"]["ref_measurement_name"]
 ref_eqe_path = pathlib.Path(config["paths"]["ref_eqe_path"])
 ref_spectrum_path = pathlib.Path(config["paths"]["ref_spectrum_path"])
@@ -508,7 +531,13 @@ lia_ch1_display = int(config["lia"]["ch2_display"])
 lia_ch2_display = int(config["lia"]["ch2_display"])
 lia_ch1_ratio = int(config["lia"]["ch1_ratio"])
 lia_ch2_ratio = int(config["lia"]["ch2_ratio"])
-lia_auto_gain = int(config["lia"]["auto_gain"])
+lia_auto_gain = config["lia"]["auto_gain"]
+if (lia_auto_gain == "True") or (lia_auto_gain == "False"):
+    lia_auto_gain = bool(lia_auto_gain)
+else:
+    raise ValueError(
+        f"Invalid value for lia_auto_gain: '{lia_auto_gain}'. Must be either 'True' or 'False'."
+    )
 lia_auto_gain_method = config["lia"]["auto_gain_method"]
 
 logger.debug(f"LIA address: {lia_address}")
@@ -536,7 +565,11 @@ logger.debug(f"LIA auto gain method: {lia_auto_gain_method}")
 # monochromator
 mono_address = config["monochromator"]["address"]
 mono_grating_change_wls = config["monochromator"]["grating_change_wls"]
+mono_grating_change_wls = mono_grating_change_wls.split(",")
+mono_grating_change_wls = [int(x) for x in mono_grating_change_wls]
 mono_filter_change_wls = config["monochromator"]["filter_change_wls"]
+mono_filter_change_wls = mono_filter_change_wls.split(",")
+mono_filter_change_wls = [int(x) for x in mono_filter_change_wls]
 mono_scan_speed = int(config["monochromator"]["scan_speed"])
 
 logger.debug(f"Monochromator address: {mono_address}")
@@ -545,7 +578,7 @@ logger.debug(f"Monochromator filter change wls: {mono_filter_change_wls}")
 logger.debug(f"Monochromator scan speed: {mono_scan_speed}")
 
 # instantiate instrument objects and connect
-lockin = sr830.sr830(address=lia_address, output_interface=0, err_check=False)
+lockin = sr830.sr830(address=lia_address, output_interface=lia_output_interface)
 lockin.connect()
 lockin_sn = lockin.serial_number
 sensitivities = lockin.sensitivities
@@ -556,15 +589,51 @@ logger.info(
     f"{lockin.manufacturer}, {lockin.model}, {lockin_sn}, {lockin.firmware_version} connected!"
 )
 
+# configure instruments
+configure_lockin(
+    input_configuration=lia_input_configuration,
+    input_coupling=lia_input_coupling,
+    ground_shielding=lia_ground_shielding,
+    line_notch_filter_status=lia_line_notch_filter_status,
+    ref_source=lia_ref_source,
+    detection_harmonic=lia_detection_harmonic,
+    ref_trigger=lia_ref_trigger,
+    ref_freq=lia_ref_freq,
+    sensitivity=lia_sensitivity,
+    reserve_mode=lia_reserve_mode,
+    time_constant=lia_time_constant,
+    low_pass_filter_slope=lia_low_pass_filter_slope,
+    sync_status=lia_sync_status,
+    ch1_display=lia_ch1_display,
+    ch2_display=lia_ch2_display,
+    ch1_ratio=lia_ch1_ratio,
+    ch2_ratio=lia_ch2_ratio,
+)
+configure_monochromator(scan_speed=mono_scan_speed)
+
+# data = measure(
+#     600,
+#     grating_change_wls=mono_grating_change_wls,
+#     filter_change_wls=mono_filter_change_wls,
+#     auto_gain=lia_auto_gain,
+#     auto_gain_method=lia_auto_gain_method,
+# )
+
 # run scan
 scan(
-    start_wl,
-    end_wl,
-    num_points,
-    mono_grating_change_wls,
-    mono_filter_change_wls,
-    lia_auto_gain,
-    lia_auto_gain_method,
+    save_folder=save_folder,
+    calibration=calibrate,
+    device_id=None,
+    ref_measurement_name=None,
+    ref_eqe_path=None,
+    ref_spectrum_path=None,
+    start_wl=start_wl,
+    end_wl=end_wl,
+    num_points=num_points,
+    grating_change_wls=mono_grating_change_wls,
+    filter_change_wls=mono_filter_change_wls,
+    auto_gain=lia_auto_gain,
+    auto_gain_method=lia_auto_gain_method,
 )
 
 # disconnect instruments
