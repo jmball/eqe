@@ -3,7 +3,6 @@
 import csv
 import configparser
 import logging
-import os
 import pathlib
 import sys
 import time
@@ -334,6 +333,7 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
+            logger.debug(f"auto_gain()")
         elif auto_gain_method == "user":
             gain_set = False
             while not gain_set:
@@ -341,6 +341,7 @@ def measure(
                 sensitivity_int = sensitivities.index(sensitivity)
                 time.sleep(5 * lockin.get_time_constant())
                 R = lockin.measure(3)
+                log_lockin_response(f"measure(3), {R}")
                 if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
                 elif (R <= 0.1 * sensitivity) and (sensitivity_int > 0):
@@ -349,6 +350,7 @@ def measure(
                     new_sensitivity = sensitivity_int
                     gain_set = True
                 lockin.set_sensitivity(new_sensitivity)
+                log_lockin_response(f"set_sensitivity({new_sensitivity})")
         else:
             msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
             logger.error(msg)
@@ -401,10 +403,13 @@ def scan(
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
     """
-    resp = lockin.set_sensitivity(0)
-    log_lockin_response(resp)
+    lockin.set_sensitivity(0)
+    log_lockin_response(f"set_sensitivity(0)")
 
     wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, ret_step=True)
+
+    logger.debug(f"Wavelengths: {wls}")
+    logger.debug(f"Wavelength step: {dwl}")
 
     i = 0
     if calibrate is True:
@@ -446,7 +451,7 @@ def scan(
                 eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
                 data.insert(len(data), eqe)
             writer.writerow(data)
-            print(data)
+            logger.info(f"Data: {data}")
 
 
 # load configuration info
@@ -458,6 +463,11 @@ save_folder = pathlib.Path(config["paths"]["save_folder"])
 ref_measurement_name = config["paths"]["ref_measurement_name"]
 ref_eqe_path = pathlib.Path(config["paths"]["ref_eqe_path"])
 ref_spectrum_path = pathlib.Path(config["paths"]["ref_spectrum_path"])
+
+logger.debug(f"Save folder: {save_folder}")
+logger.debug(f"Ref measurement name: {ref_measurement_name}")
+logger.debug(f"Ref EQE path: {ref_eqe_path}")
+logger.debug(f"Ref spectrum path: {ref_spectrum_path}")
 
 # experiment
 calibrate = config["experiment"]["calibrate"]
@@ -471,6 +481,12 @@ device_id = config["experiment"]["device_id"]
 start_wl = float(config["experiment"]["start_wl"])
 end_wl = float(config["experiment"]["end_wl"])
 num_points = int(config["experiment"]["num_points"])
+
+logger.debug(f"Calibrate: {calibrate}")
+logger.debug(f"Device ID: {device_id}")
+logger.debug(f"Start WL: {start_wl}")
+logger.debug(f"End WL: {end_wl}")
+logger.debug(f"Number of wl points: {num_points}")
 
 # lock-in amplifier
 lia_address = config["lia"]["address"]
@@ -495,11 +511,38 @@ lia_ch2_ratio = int(config["lia"]["ch2_ratio"])
 lia_auto_gain = int(config["lia"]["auto_gain"])
 lia_auto_gain_method = config["lia"]["auto_gain_method"]
 
+logger.debug(f"LIA address: {lia_address}")
+logger.debug(f"LIA output interface: {lia_output_interface}")
+logger.debug(f"LIA input configuration: {lia_input_configuration}")
+logger.debug(f"LIA input coupling: {lia_input_coupling}")
+logger.debug(f"LIA ground shielding: {lia_ground_shielding}")
+logger.debug(f"LIA line notch filter status: {lia_line_notch_filter_status}")
+logger.debug(f"LIA ref source: {lia_ref_source}")
+logger.debug(f"LIA detection harmonic: {lia_detection_harmonic}")
+logger.debug(f"LIA ref trigger: {lia_ref_trigger}")
+logger.debug(f"LIA ref freq: {lia_ref_freq}")
+logger.debug(f"LIA sensitivity: {lia_sensitivity}")
+logger.debug(f"LIA reserve mode: {lia_reserve_mode}")
+logger.debug(f"LIA time constant: {lia_time_constant}")
+logger.debug(f"LIA low pass filter slope: {lia_low_pass_filter_slope}")
+logger.debug(f"LIA sync status: {lia_sync_status}")
+logger.debug(f"LIA ch1 display: {lia_ch1_display}")
+logger.debug(f"LIA ch2 display: {lia_ch2_display}")
+logger.debug(f"LIA ch1 ratio: {lia_ch1_ratio}")
+logger.debug(f"LIA ch2 ratio: {lia_ch2_ratio}")
+logger.debug(f"LIA auto gain: {lia_auto_gain}")
+logger.debug(f"LIA auto gain method: {lia_auto_gain_method}")
+
 # monochromator
 mono_address = config["monochromator"]["address"]
 mono_grating_change_wls = config["monochromator"]["grating_change_wls"]
 mono_filter_change_wls = config["monochromator"]["filter_change_wls"]
 mono_scan_speed = int(config["monochromator"]["scan_speed"])
+
+logger.debug(f"Monochromator address: {mono_address}")
+logger.debug(f"Monochromator grating change wls: {mono_grating_change_wls}")
+logger.debug(f"Monochromator filter change wls: {mono_filter_change_wls}")
+logger.debug(f"Monochromator scan speed: {mono_scan_speed}")
 
 # instantiate instrument objects and connect
 lockin = sr830.sr830(address=lia_address, output_interface=0, err_check=False)
