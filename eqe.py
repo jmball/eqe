@@ -38,12 +38,19 @@ if sp2150_path.exists() is True:
     logger.debug(f"{sp2150_path} exists")
 else:
     logger.debug(f"{sp2150_path} doesn't exist")
+dp800_path = parent.joinpath("rigol_dp800")
+if dp800_path.exists() is True:
+    logger.debug(f"{dp800_path} exists")
+else:
+    logger.debug(f"{dp800_path} doesn't exist")
 sys.path.insert(0, str(sr830_path))
 sys.path.insert(0, str(sp2150_path))
+sys.path.insert(0, str(dp800_path))
 
 # import instrument libraries
 import sr830
 import sp2150
+import dp800
 
 
 def log_monochromator_response(resp):
@@ -237,6 +244,17 @@ def scan(
         config_header = f.readlines()
     config_header_len = len(config_header)
 
+    # turn on bias LEDs
+    if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
+        psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
+        psu.set_output_enable(True, 1)
+    if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
+        psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
+        psu.set_output_enable(True, 2)
+    if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
+        psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
+        psu.set_output_enable(True, 3)
+
     i = 0
     if calibrate is True:
         save_path = save_folder.joinpath(f"reference_{i}.txt")
@@ -314,6 +332,11 @@ def scan(
                     data.insert(len(data), eqe)
                 writer.writerow(data)
                 logger.info(f"Data: {data}")
+
+    # turn off LEDs
+    psu.set_output_enable(False, 1)
+    psu.set_output_enable(False, 2)
+    psu.set_output_enable(False, 3)
 
 
 # load configuration info
@@ -425,6 +448,23 @@ logger.debug(f"Monochromator grating change wls: {mono_grating_change_wls}")
 logger.debug(f"Monochromator filter change wls: {mono_filter_change_wls}")
 logger.debug(f"Monochromator scan speed: {mono_scan_speed}")
 
+# psu
+psu_address = config["psu"]["address"]
+psu_ch1_current = config["psu"]["ch1_current"]
+psu_ch1_voltage = config["psu"]["ch1_voltage"]
+psu_ch2_current = config["psu"]["ch2_current"]
+psu_ch2_voltage = config["psu"]["ch2_voltage"]
+psu_ch3_current = config["psu"]["ch3_current"]
+psu_ch3_voltage = config["psu"]["ch3_voltage"]
+
+logger.debug(f"PSU address: {psu_address}")
+logger.debug(f"PSU CH1 current: {psu_ch1_current}")
+logger.debug(f"PSU CH1 voltage: {psu_ch1_voltage}")
+logger.debug(f"PSU CH2 current: {psu_ch2_current}")
+logger.debug(f"PSU CH2 voltage: {psu_ch2_voltage}")
+logger.debug(f"PSU CH3 current: {psu_ch3_current}")
+logger.debug(f"PSU CH3 voltage: {psu_ch3_voltage}")
+
 # instantiate instrument objects and connect
 lockin = sr830.sr830(return_int=True, check_errors=True)
 lockin.connect(
@@ -454,14 +494,13 @@ lockin.set_configuration(
 lockin_sn = lockin.serial_number
 sensitivities = lockin.sensitivities
 time_constants = lockin.time_constants
+
 mono = sp2150.sp2150(address=mono_address)
 mono.connect()
-logger.info(
-    f"{lockin.manufacturer}, {lockin.model}, {lockin_sn}, {lockin.firmware_version} connected!"
-)
-
-# configure instruments
 configure_monochromator(scan_speed=mono_scan_speed)
+
+psu = dp800.dp800(check_errors=True)
+psu.connect(resource_name=psu_address)
 
 # run scan
 scan(
@@ -483,8 +522,8 @@ scan(
 # disconnect instruments
 lockin.disconnect()
 mono.disconnect()
+psu.disconnect()
 sr830.rm.close()
 
 # close log file
-
 file_handler.close()
