@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="central-control",
+    name="eqe",
     use_scm_version=True,
     setup_requires=['setuptools_scm'],
     author="James Ball",

@@ -3,7 +3,7 @@ from pkg_resources import get_distribution, DistributionNotFound
 
 # get version if running from git folder 
 try:
-    __version__ = get_version(root='.', relative_to=__file__)
+    __version__ = get_version(root='..', relative_to=__file__)
 except LookupError:
     __version__ = None
 
@@ -14,3 +14,5 @@ if __version__ == None:
     except DistributionNotFound:
         __version__ = '0.0.0'
         pass
+        
+from .eqe import *
