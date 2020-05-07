@@ -15,7 +15,7 @@ import dp800
 import eqe
 
 
-class dummy_sourcemeter:
+class DummySMU:
     """Dummy class for SMU."""
 
     def __init__(self):
@@ -39,7 +39,7 @@ class dummy_sourcemeter:
         pass
 
 
-class eqe_data_handler:
+class EQEDataHandler:
     """Handler for processing live EQE data."""
 
     def __init__(self, device_id, save_folder, calibration, config_header):
@@ -341,14 +341,14 @@ mono.set_scan_speed(mono_scan_speed)
 psu = dp800.dp800(check_errors=True)
 psu.connect(resource_name=psu_address)
 
-smu = dummy_sourcemeter()
+smu = DummySMU()
 
 # set up data_handler
 with open("config.ini") as f:
     config_header = f.readlines()
 config_header_len = len(config_header)
 
-data_handler = eqe_data_handler(device_id, save_folder, calibrate, config_header)
+data_handler = EQEDataHandler(device_id, save_folder, calibrate, config_header)
 
 # run scan
 eqe.scan(
