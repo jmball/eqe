@@ -207,10 +207,7 @@ def scan(
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
     data_handler : data_handler object, optional
-        Object that processes live data produced during the scan. The function is
-        structured assuming this data handler object has `save_counter` and
-        `plot_counter` attributes, which are resettable, as well as `save_data` and
-        `plot_data` methods. None of these have to exist to run the function.
+        Object that processes live data produced during the scan.
     """
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
@@ -237,12 +234,6 @@ def scan(
             bounds_error=False,
             fill_value=0,
         )
-
-    # reset data handler counters so they know to start a new file/plot
-    if hasattr(data_handler, "save_counter"):
-        data_handler.save_counter = 0
-    if hasattr(data_handler, "plot_counter"):
-        data_handler.plot_counter = 0
 
     # initialise scan data container
     scan_data = []
@@ -285,10 +276,8 @@ def scan(
                 eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
                 data.insert(len(data), eqe)
             scan_data.append(data)
-            if hasattr(data_handler, "save_data"):
-                data_handler.save_data(data)
-            if hasattr(data_handler, "plot_data"):
-                data_handler.plot_data(data)
+            if data_handler is not None:
+                data_handler(data)
             logger.info(f"{data}")
 
     # turn of smu if present
