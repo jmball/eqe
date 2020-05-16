@@ -6,9 +6,27 @@ import time
 import numpy as np
 import scipy as sp
 import scipy.interpolate
+import scipy.integrate
+from scipy.constants import h, c, e
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+
+def integrated_jsc(wls, eqe, spec):
+    """Calculate integrated Jsc.
+
+    Parameters
+    ----------
+    wls : array
+        Wavelengths in nm.
+    eqe : array
+        Fractional EQE at each wavelength.
+    spec : array
+        Spectral irradiance of reference spectrum at each wavelength.
+    """
+    Es = h * c / (wls * 1e-9)
+    return sp.integrate.simps(eqe * spec / Es, wls) * 1000 / 10000
 
 
 def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
@@ -207,13 +225,21 @@ def scan(
             delimiter="\t",
             skip_header=ref_measurement_file_header,
         )
-        # interpolate reference eqe spectrum and measurement data
-        f_ref_eqe_spectrum = sp.interpolate.interp1d(
+        ref_spectrum = np.genfromtxt(ref_spectrum_path, delimeter="\t", skip_header=1)
+        # interpolate reference data
+        f_ref_eqe = sp.interpolate.interp1d(
             ref_eqe[:, 0], ref_eqe[:, 1], kind="cubic", bounds_error=False, fill_value=0
         )
         f_ref_measurement = sp.interpolate.interp1d(
             ref_measurement[:, 1],
             ref_measurement[:, -1],
+            kind="cubic",
+            bounds_error=False,
+            fill_value=0,
+        )
+        f_ref_spectrum = sp.interpolate.interp1d(
+            ref_spectrum[:, 0],
+            ref_spectrum[:, 1],
             kind="cubic",
             bounds_error=False,
             fill_value=0,
@@ -238,31 +264,46 @@ def scan(
     smu.outOn(True)
 
     # scan wavelength and measure lock-in parameters
+    meas_wls = []
+    meas_eqe = []
     for wl in wls:
+        timestamp = time.time()
+        data = np.empty((0, 11))
         for i in range(repeats):
-            timestamp = time.time()
-            data = list(
-                measure(
-                    lockin,
-                    mono,
-                    wl,
-                    grating_change_wls,
-                    filter_change_wls,
-                    auto_gain,
-                    auto_gain_method,
-                )
+            new_data = measure(
+                lockin,
+                mono,
+                wl,
+                grating_change_wls,
+                filter_change_wls,
+                auto_gain,
+                auto_gain_method,
             )
-            data.insert(0, wl)
-            data.insert(0, timestamp)
-            if calibration is False:
-                ref_eqe_at_wl = f_ref_eqe_spectrum(wl)
-                ref_measurement_at_wl = f_ref_measurement(wl)
-                eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
-                data.insert(len(data), eqe)
-            scan_data.append(data)
-            if data_handler is not None:
-                data_handler(data)
-            logger.info(f"{data}")
+            data = np.append(data, np.array(new_data).reshape((1, 11)), axis=0)
+        # return average of repeats
+        data = data.mean(axis=0).tolist()
+        data.insert(0, wl)
+        data.insert(0, timestamp)
+        if calibration is False:
+            # calculate eqe
+            ref_eqe_at_wl = f_ref_eqe(wl)
+            ref_measurement_at_wl = f_ref_measurement(wl)
+            eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
+
+            # calculate integrated jsc
+            meas_wls.append(wl)
+            meas_eqe.append(eqe)
+            jsc = integrated_jsc(
+                np.array(meas_wls), np.array(meas_eqe), f_ref_spectrum(meas_wls)
+            )
+
+            # insert calc parameters into data
+            data.insert(len(data), eqe)
+            data.insert(len(data), jsc)
+        scan_data.append(data)
+        if data_handler is not None:
+            data_handler(data)
+        logger.info(f"{data}")
 
     # turn of smu if present
     smu.outOn(False)
