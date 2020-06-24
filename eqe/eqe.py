@@ -150,6 +150,7 @@ def scan(
     filter_change_wls=None,
     auto_gain=True,
     auto_gain_method="user",
+    integration_time=8,
     data_handler=None,
 ):
     """Perform a wavelength scan measurement.
@@ -208,9 +209,14 @@ def scan(
         If auto_gain is True, method for automatically finding the correct gain setting.
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
+    integration_time : int
+        Integration time setting for the lock-in amplifier.
     data_handler : data_handler object, optional
         Object that processes live data produced during the scan.
     """
+    # set lock-in integration time/time constant
+    lockin.set_time_constant(integration_time)
+
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
 
