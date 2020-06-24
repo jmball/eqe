@@ -130,11 +130,8 @@ def scan(
     mono,
     psu,
     smu,
-    psu_ch1_voltage=0,
     psu_ch1_current=0,
-    psu_ch2_voltage=0,
     psu_ch2_current=0,
-    psu_ch3_voltage=0,
     psu_ch3_current=0,
     smu_voltage=0,
     calibration=True,
@@ -165,16 +162,10 @@ def scan(
         PSU object.
     smu : smu object
         SMU object.
-    psu_ch1_voltage : float, optional
-        PSU channel 1 voltage.
     psu_ch1_current : float, optional
         PSU channel 1 current.
-    psu_ch2_voltage : float, optional
-        PSU channel 2 voltage.
     psu_ch2_current : float, optional
         PSU channel 2 current.
-    psu_ch3_voltage : float, optional
-        PSU channel 3 voltage.
     psu_ch3_current : float, optional
         PSU channel 3 current.
     calibration : bool, optional
@@ -255,14 +246,14 @@ def scan(
     scan_data = []
 
     # turn on bias LEDs if required
-    if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
-        psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
+    if psu_ch1_current != 0:
+        psu.set_current(psu_ch1_current, 1)
         psu.set_output_enable(True, 1)
-    if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
-        psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
+    if psu_ch2_current != 0:
+        psu.set_current(psu_ch2_current, 2)
         psu.set_output_enable(True, 2)
-    if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
-        psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
+    if psu_ch3_current != 0:
+        psu.set_current(psu_ch3_current, 3)
         psu.set_output_enable(True, 3)
 
     # apply voltage bias
