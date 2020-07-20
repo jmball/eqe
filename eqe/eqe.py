@@ -143,7 +143,6 @@ def scan(
     start_wl=350,
     end_wl=1100,
     num_points=76,
-    repeats=1,
     grating_change_wls=None,
     filter_change_wls=None,
     integration_time=8,
