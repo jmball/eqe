@@ -85,7 +85,7 @@ def measure(
 
     Returns
     -------
-    data : tuple
+    data : list
         X, Y, Aux1, Aux2, Aux3, Aux4, R, Phase, Freq, Ch1, and Ch2.
     """
     set_wavelength(mono, wl, grating_change_wls, filter_change_wls)
@@ -120,9 +120,8 @@ def measure(
     data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
     data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
     ratio = data2[0] / data1[2]
-    data = data1 + data2
-    data.insert(len(data), ratio)
-    return data
+
+    return data1 + data2 + [ratio]
 
 
 def scan(
@@ -138,20 +137,20 @@ def scan(
     psu_ch3_current=0,
     smu_voltage=0,
     calibration=True,
-    ref_measurement_path=None,
-    ref_measurement_file_header=1,
-    ref_eqe_path=None,
-    ref_spectrum_path=None,
+    ref_measurement=None,
+    ref_eqe=None,
+    ref_spectrum=None,
     start_wl=350,
     end_wl=1100,
     num_points=76,
     repeats=1,
     grating_change_wls=None,
     filter_change_wls=None,
+    integration_time=8,
     auto_gain=True,
     auto_gain_method="user",
-    integration_time=8,
-    data_handler=None,
+    handler=None,
+    handler_kwargs={},
 ):
     """Perform a wavelength scan measurement.
 
@@ -179,40 +178,40 @@ def scan(
         PSU channel 3 current.
     calibration : bool, optional
         Whether or not measurement should be interpreted as a calibration run.
-    ref_measurement_path : str
-        Path of data file containing measurement data of the reference diode. Ignored
-        if `calibration` is True.
-    ref_measurement_file_header : int
-        Number of header lines to skip in referece diode measurement data file. Ignored
-        if `calibration` is True.
-    ref_eqe_path : str
-        Path to EQE calibration data for the reference diode. Ignored if `calibration`
-        is True.
-    ref_spectrum_path : str, optional
-        Path to reference spectrum to use in an integrated Jsc calculation. Ignored if
-        `calibration` is True.
+    ref_measurement : array, optional
+        Measurement data of the reference diode arranged in two columns where the first
+        column is wavelengths in nm and the second is the measured signal at each
+        wavelength. Ignored if `calibration` is True.
+    ref_eqe : array, optional
+        EQE calibration data for the reference diode arranged in two columns where the
+        first column is wavelengths in nm and the second is EQE in desired units at
+        each wavelength. Ignored if `calibration` is True.
+    ref_spectrum : array, optional
+        Reference spectrum to use in an integrated Jsc calculation arranged in two
+        columns where the first column is wavelengths in nm and the second is spectral
+        irradiance in W/m^2/nm at each wavelength Ignored if `calibration` is True.
     start_wl : int or float, optional
         Start wavelength in nm.
     end_wl : int or float, optional
         End wavelength in nm
     num_points : int, optional
         Number of wavelengths in scan
-    repeats : int, optional
-        Number of repeat measurements at each wavelength.
     grating_change_wls : list or tuple of int or float, optional
         Wavelength in nm at which to change to the grating.
     filter_change_wls : list or tuple of int or float, optional
         Wavelengths in nm at which to change filters
+    integration_time : int
+        Integration time setting for the lock-in amplifier.
     auto_gain : bool, optional
         Automatically choose sensitivity.
     auto_gain_method : {"instr", "user"}, optional
         If auto_gain is True, method for automatically finding the correct gain setting.
         "instr" uses the instrument auto-gain feature, "user" implements a user-defined
         algorithm.
-    integration_time : int
-        Integration time setting for the lock-in amplifier.
-    data_handler : data_handler object, optional
+    handler : data_handler object, optional
         Object that processes live data produced during the scan.
+    handler_kwargs : dict, optional
+        Dictionary of keyword arguments to pass to the handler.
     """
     # set lock-in integration time/time constant
     lockin.set_time_constant(integration_time)
@@ -221,20 +220,16 @@ def scan(
     lockin.set_sensitivity(26)
 
     # get array of wavelengths to measure
-    wls, dwl = np.linspace(start_wl, end_wl, num_points, endpoint=True, retstep=True)
+    wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
-    # look up reference data if not running a calibration scan
+    # interpolation objects for reference data if not running a calibration scan
     if calibration is not True:
-        ref_eqe = np.genfromtxt(ref_eqe_path, delimiter="\t", skip_header=1)
-        ref_measurement = np.genfromtxt(
-            ref_measurement_path,
-            delimiter="\t",
-            skip_header=ref_measurement_file_header,
-        )
-        ref_spectrum = np.genfromtxt(ref_spectrum_path, delimeter="\t", skip_header=1)
-        # interpolate reference data
         f_ref_eqe = sp.interpolate.interp1d(
-            ref_eqe[:, 0], ref_eqe[:, 1], kind="cubic", bounds_error=False, fill_value=0
+            ref_eqe[:, 0],
+            ref_eqe[:, 1],
+            kind="cubic",
+            bounds_error=False,
+            fill_value=0,
         )
         f_ref_measurement = sp.interpolate.interp1d(
             ref_measurement[:, 1],
@@ -250,9 +245,6 @@ def scan(
             bounds_error=False,
             fill_value=0,
         )
-
-    # initialise scan data container
-    scan_data = []
 
     # turn on bias LEDs if required
     if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
@@ -272,24 +264,25 @@ def scan(
     # scan wavelength and measure lock-in parameters
     meas_wls = []
     meas_eqe = []
+    scan_data = []
     for wl in wls:
+        # get timestamp
         timestamp = time.time()
-        data = np.empty((0, 11))
-        for i in range(repeats):
-            new_data = measure(
-                lockin,
-                mono,
-                wl,
-                grating_change_wls,
-                filter_change_wls,
-                auto_gain,
-                auto_gain_method,
-            )
-            data = np.append(data, np.array(new_data).reshape((1, 11)), axis=0)
-        # return average of repeats
-        data = data.mean(axis=0).tolist()
+
+        # perform measurement
+        data = measure(
+            lockin,
+            mono,
+            wl,
+            grating_change_wls,
+            filter_change_wls,
+            auto_gain,
+            auto_gain_method,
+        )
+
         data.insert(0, wl)
         data.insert(0, timestamp)
+
         if calibration is False:
             # calculate eqe
             ref_eqe_at_wl = f_ref_eqe(wl)
@@ -307,8 +300,8 @@ def scan(
             data.insert(len(data), eqe)
             data.insert(len(data), jsc)
         scan_data.append(data)
-        if data_handler is not None:
-            data_handler(data)
+        if handler is not None:
+            handler(data, **handler_kwargs)
         logger.info(f"{data}")
 
     # turn of smu if present
