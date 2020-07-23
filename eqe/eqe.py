@@ -136,10 +136,6 @@ def scan(
     psu_ch3_voltage=0,
     psu_ch3_current=0,
     smu_voltage=0,
-    calibration=True,
-    ref_measurement=None,
-    ref_eqe=None,
-    ref_spectrum=None,
     start_wl=350,
     end_wl=1100,
     num_points=76,
@@ -175,20 +171,6 @@ def scan(
         PSU channel 3 voltage.
     psu_ch3_current : float, optional
         PSU channel 3 current.
-    calibration : bool, optional
-        Whether or not measurement should be interpreted as a calibration run.
-    ref_measurement : array, optional
-        Measurement data of the reference diode arranged in two columns where the first
-        column is wavelengths in nm and the second is the measured signal at each
-        wavelength. Ignored if `calibration` is True.
-    ref_eqe : array, optional
-        EQE calibration data for the reference diode arranged in two columns where the
-        first column is wavelengths in nm and the second is EQE in desired units at
-        each wavelength. Ignored if `calibration` is True.
-    ref_spectrum : array, optional
-        Reference spectrum to use in an integrated Jsc calculation arranged in two
-        columns where the first column is wavelengths in nm and the second is spectral
-        irradiance in W/m^2/nm at each wavelength Ignored if `calibration` is True.
     start_wl : int or float, optional
         Start wavelength in nm.
     end_wl : int or float, optional
@@ -221,30 +203,6 @@ def scan(
     # get array of wavelengths to measure
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
-    # interpolation objects for reference data if not running a calibration scan
-    if calibration is not True:
-        f_ref_eqe = sp.interpolate.interp1d(
-            ref_eqe[:, 0],
-            ref_eqe[:, 1],
-            kind="cubic",
-            bounds_error=False,
-            fill_value=0,
-        )
-        f_ref_measurement = sp.interpolate.interp1d(
-            ref_measurement[:, 1],
-            ref_measurement[:, -1],
-            kind="cubic",
-            bounds_error=False,
-            fill_value=0,
-        )
-        f_ref_spectrum = sp.interpolate.interp1d(
-            ref_spectrum[:, 0],
-            ref_spectrum[:, 1],
-            kind="cubic",
-            bounds_error=False,
-            fill_value=0,
-        )
-
     # turn on bias LEDs if required
     if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
         psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
@@ -261,8 +219,6 @@ def scan(
     smu.outOn(True)
 
     # scan wavelength and measure lock-in parameters
-    meas_wls = []
-    meas_eqe = []
     scan_data = []
     for wl in wls:
         # get timestamp
@@ -282,23 +238,8 @@ def scan(
         data.insert(0, wl)
         data.insert(0, timestamp)
 
-        if calibration is False:
-            # calculate eqe
-            ref_eqe_at_wl = f_ref_eqe(wl)
-            ref_measurement_at_wl = f_ref_measurement(wl)
-            eqe = data[-1] * ref_eqe_at_wl / ref_measurement_at_wl
-
-            # calculate integrated jsc
-            meas_wls.append(wl)
-            meas_eqe.append(eqe)
-            jsc = integrated_jsc(
-                np.array(meas_wls), np.array(meas_eqe), f_ref_spectrum(meas_wls)
-            )
-
-            # insert calc parameters into data
-            data.insert(len(data), eqe)
-            data.insert(len(data), jsc)
         scan_data.append(data)
+
         if handler is not None:
             handler(data, **handler_kwargs)
         logger.info(f"{data}")
