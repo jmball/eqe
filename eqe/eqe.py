@@ -119,9 +119,8 @@ def measure(
 
     data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
     data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
-    ratio = data2[0] / data1[2]
 
-    return data1 + data2 + [ratio]
+    return data1 + data2
 
 
 def scan(
