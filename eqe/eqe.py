@@ -99,7 +99,12 @@ def measure(
             while not gain_set:
                 sensitivity_int = lockin.get_sensitivity()
                 sensitivity = lockin.sensitivities[sensitivity_int]
-                time.sleep(5 * lockin.get_time_constant())
+                time_constant_int = lockin.get_time_constant()
+                time_constant = lockin.time_constants[time_constant_int]
+                time.sleep(5 * time_constant)
+                print(
+                    f"Sentivity_int = {sensitivity_int}, sensitivity = {sensitivity}, time_constant_int = {time_constant_int}, time_constant = {time_constant}"
+                )
                 R = lockin.measure(3)
                 if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
