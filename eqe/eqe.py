@@ -97,8 +97,8 @@ def measure(
         elif auto_gain_method == "user":
             gain_set = False
             while not gain_set:
-                sensitivity = lockin.get_sensitivity()
-                sensitivity_int = lockin.sensitivities.index(sensitivity)
+                sensitivity_int = lockin.get_sensitivity()
+                sensitivity = lockin.sensitivities[sensitivity_int]
                 time.sleep(5 * lockin.get_time_constant())
                 R = lockin.measure(3)
                 if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
