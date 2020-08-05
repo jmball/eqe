@@ -239,6 +239,8 @@ def scan(
 
         scan_data.append(data)
 
+        print(data)
+
         if handler is not None:
             handler(data, **handler_kwargs)
         logger.info(f"{data}")
