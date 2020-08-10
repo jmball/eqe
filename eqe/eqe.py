@@ -219,7 +219,7 @@ def scan(
         psu.set_output_enable(True, 3)
 
     # apply voltage bias
-    smu.setOutput(smu_voltage)
+    smu.setSource(smu_voltage)
     smu.outOn(True)
 
     # scan wavelength and measure lock-in parameters
