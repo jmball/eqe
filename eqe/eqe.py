@@ -140,6 +140,7 @@ def scan(
     psu_ch3_voltage=0,
     psu_ch3_current=0,
     smu_voltage=0,
+    smu_compliance=0.1,
     start_wl=350,
     end_wl=1100,
     num_points=76,
@@ -175,6 +176,10 @@ def scan(
         PSU channel 3 voltage.
     psu_ch3_current : float, optional
         PSU channel 3 current.
+    smu_voltage : float
+        SMU voltage bias in V.
+    smu_compliance : float
+        SMU compliance current in A.
     start_wl : int or float, optional
         Start wavelength in nm.
     end_wl : int or float, optional
@@ -219,7 +224,12 @@ def scan(
         psu.set_output_enable(True, 3)
 
     # apply voltage bias
-    smu.setSource(smu_voltage)
+    smu.setupDC(
+        sourceVoltage=True,
+        compliance=smu_compliance,
+        setPoint=smu_voltage,
+        senseRange="a",
+    )
     smu.outOn(True)
 
     # scan wavelength and measure lock-in parameters
