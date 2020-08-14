@@ -250,6 +250,9 @@ def scan(
             handler(data, **handler_kwargs)
         logger.info(f"{data}")
 
+    # reset sensitivity to lowest setting to prevent overflow
+    lockin.set_sensitivity(26)
+
     # turn of smu if present
     smu.outOn(False)
 
