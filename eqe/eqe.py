@@ -120,7 +120,7 @@ def measure(
             raise ValueError(msg)
 
     # wait to settle
-    time.sleep(5 * lockin.get_time_constant())
+    time.sleep(5 * time_constant)
 
     data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
     data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
