@@ -254,7 +254,7 @@ def scan(
 
         scan_data.append(data)
 
-        print(data)
+        _ = smu.measure()
 
         if handler is not None:
             handler(data, **handler_kwargs)
