@@ -209,6 +209,8 @@ def scan(
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
 
+    print(num_points)
+
     # get array of wavelengths to measure
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
