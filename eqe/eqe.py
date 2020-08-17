@@ -104,9 +104,9 @@ def measure(
                 time_constant = lockin.time_constants[time_constant_int]
                 time.sleep(10 * time_constant)
                 R = lockin.measure(3)
-                if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
+                if (R >= sensitivity * 0.8) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
-                elif (R <= 0.1 * sensitivity) and (sensitivity_int > 0):
+                elif (R <= 0.2 * sensitivity) and (sensitivity_int > 0):
                     new_sensitivity = sensitivity_int - 1
                 else:
                     new_sensitivity = sensitivity_int
