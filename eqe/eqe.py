@@ -49,8 +49,7 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
         resp = mono.set_grating(grating)
     if filter_change_wls is not None:
         filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
-        # resp = mono.set_filter(filter_pos)
-        resp = mono.set_filter(1)
+        resp = mono.set_filter(filter_pos)
         print(resp)
     resp = mono.goto_wavelength(wl)
 
@@ -103,7 +102,7 @@ def measure(
                 sensitivity = lockin.sensitivities[sensitivity_int]
                 time_constant_int = lockin.get_time_constant()
                 time_constant = lockin.time_constants[time_constant_int]
-                time.sleep(5 * time_constant)
+                time.sleep(10 * time_constant)
                 R = lockin.measure(3)
                 if (R >= sensitivity * 0.9) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
@@ -119,7 +118,7 @@ def measure(
             raise ValueError(msg)
 
     # wait to settle
-    time.sleep(5 * time_constant)
+    time.sleep(10 * time_constant)
 
     data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
     data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
