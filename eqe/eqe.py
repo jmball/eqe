@@ -50,7 +50,9 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
     if filter_change_wls is not None:
         filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
         resp = mono.set_filter(filter_pos)
+        print(resp)
     resp = mono.goto_wavelength(wl)
+    print(resp)
 
 
 def measure(
