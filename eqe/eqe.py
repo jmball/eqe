@@ -51,6 +51,7 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
         filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
         # resp = mono.set_filter(filter_pos)
         resp = mono.set_filter(1)
+        print(resp)
     resp = mono.goto_wavelength(wl)
 
 
