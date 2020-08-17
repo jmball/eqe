@@ -45,10 +45,10 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
     """
     # Set grating and filter wheel position depending on wl
     if grating_change_wls is not None:
-        grating = len([i for i in grating_change_wls if i < wl])
+        grating = len([i for i in grating_change_wls if i < wl]) + 1
         resp = mono.set_grating(grating)
     if filter_change_wls is not None:
-        filter_pos = len([i for i in filter_change_wls if i < wl])
+        filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
         # resp = mono.set_filter(filter_pos)
         resp = mono.set_filter(1)
         print(resp)
