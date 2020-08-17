@@ -249,7 +249,7 @@ def scan(
         data.insert(0, wl)
         data.insert(0, timestamp)
 
-        print(data)
+        print(f"wl = {data[1]}, R = {data[8]}, phase = {data[9]}")
 
         scan_data.append(data)
 
