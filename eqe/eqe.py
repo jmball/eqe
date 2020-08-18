@@ -2,6 +2,7 @@
 
 import logging
 import time
+import warnings
 
 import numpy as np
 import scipy as sp
@@ -50,8 +51,80 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
     if filter_change_wls is not None:
         filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
         resp = mono.set_filter(filter_pos)
-        print(resp)
     resp = mono.goto_wavelength(wl)
+
+
+def is_close(a, b, pc):
+    """Check if `b` is within a given percentage of `a`.
+
+    If both `a` and `b` are zero then the function returns `True`. If `b` is non-zero
+    but `a` is zero then a percentage cannot be calculated and the function returns
+    False.
+
+    Parameters
+    ----------
+    a : float
+        First number.
+    b : float
+        Number to compare with `a`.
+    pc : float
+        Percentage deviation to check for.
+
+    Returns
+    -------
+    is_close : bool
+        Boolean flag for whether b is close to a.
+    """
+    if a == b:
+        # handles case where both a and b are zero
+        return True
+    elif a == 0:
+        return False
+    else:
+        return abs(a - b) * 100 / a < pc
+
+
+def wait_for_lia_to_settle(lockin, timeout):
+    """Wait for lock-in amplifier to settle.
+
+    Parameters
+    ----------
+    lockin : lock-in amplifier object
+        Lock-in amplifier object.
+    timeout : float
+        Maximum time to wait for lock-in to settle before moving on.
+
+    Returns
+    -------
+    R : float
+        Mean sampled R value after settling. Taking the mean of a sample reduces
+        influence of noise.
+    """
+    lockin.reset_data_buffers()
+    lockin.start()
+    time.sleep(0.25)
+    lockin.pause()
+    R = lockin.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
+    old_mean_R = np.array(list(R)).mean()
+    t_start = time.time()
+    while True:
+        if time.time() - t_start > timeout:
+            print("Timed out waiting for signal to settle.")
+            # init new_mean_R in case timeout is 0
+            new_mean_R = old_mean_R
+            break
+        else:
+            lockin.reset_data_buffers()
+            lockin.start()
+            time.sleep(0.25)
+            lockin.pause()
+            R = lia.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
+            new_mean_R = np.array(list(R)).mean()
+            if is_close(old_mean_R, new_mean_R, 10) is True:
+                break
+            old_mean_R = new_mean_R
+
+    return new_mean_R
 
 
 def measure(
@@ -94,31 +167,27 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
+            time_constant = lockin.time_constants[lockin.get_time_constant()]
+            time.sleep(5 * time_constant)
             logger.debug(f"auto_gain()")
         elif auto_gain_method == "user":
-            gain_set = False
-            while not gain_set:
+            while True:
                 sensitivity_int = lockin.get_sensitivity()
                 sensitivity = lockin.sensitivities[sensitivity_int]
-                time_constant_int = lockin.get_time_constant()
-                time_constant = lockin.time_constants[time_constant_int]
-                time.sleep(10 * time_constant)
-                R = lockin.measure(3)
+
+                R = wait_for_lia_to_settle(lockin, 20)
                 if (R >= sensitivity * 0.8) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
                 elif (R <= 0.2 * sensitivity) and (sensitivity_int > 0):
                     new_sensitivity = sensitivity_int - 1
                 else:
-                    new_sensitivity = sensitivity_int
-                    gain_set = True
+                    break
                 lockin.set_sensitivity(new_sensitivity)
         else:
-            msg = f'Invalid auto-gain method: {auto_gain_method}. Must be "instr" or "user".'
-            logger.error(msg)
-            raise ValueError(msg)
-
-    # wait to settle
-    time.sleep(10 * time_constant)
+            raise ValueError(
+                f"Invalid auto-gain method: {auto_gain_method}. Must be 'instr' or "
+                + "'user'."
+            )
 
     data1 = list(lockin.measure_multiple([1, 2, 5, 6, 7, 8]))
     data2 = list(lockin.measure_multiple([3, 4, 9, 10, 11]))
@@ -207,6 +276,16 @@ def scan(
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
 
+    # determine whether to turn on the synchronous filter
+    if lia.get_ref_freq() < 200:
+        lia.set_sync_status(1)
+
+    # set up reading into buffer
+    lockin.set_trigger_start_mode(0)
+    lockin.set_end_of_buffer_mode(0)
+    lockin.set_sample_rate(12)
+    lockin.set_data_transfer_mode(0)
+
     # get array of wavelengths to measure
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
@@ -254,7 +333,9 @@ def scan(
 
         scan_data.append(data)
 
-        _ = smu.measure()
+        # update the keithley display
+        # measures AC + DC so can't rely on it for DC background measurement
+        smu.measure()
 
         if handler is not None:
             handler(data, **handler_kwargs)
@@ -262,6 +343,9 @@ def scan(
 
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
+
+    # return wavelength to white
+    set_wavelength(mono, 0, grating_change_wls, filter_change_wls)
 
     # turn of smu if present
     smu.outOn(False)
@@ -272,3 +356,57 @@ def scan(
     psu.set_output_enable(False, 3)
 
     return scan_data
+
+
+if __name__ == "__main__":
+    import sr830
+    import sp2150
+    import dp800
+
+    from central_control_dev.virt import k2400
+
+    lia_address = "GPIB::8::INSTR"
+    mono_address = "ASRL5::INSTR"
+    psu_address = "TCPIP0::10.42.0.101::INSTR"
+    smu_address = ""
+
+    # connect to instruments
+    lia = sr830.sr830(return_int=True)
+    lia.connect(lia_address, output_interface=1, **{"timeout": 30000})
+
+    mono = sp2150.sp2150()
+    mono.connect(mono_address)
+
+    psu = dp800.dp800()
+    psu.connect(psu_address)
+
+    smu = k2400()
+
+    # run a scan
+    scan(
+        lia,
+        mono,
+        psu,
+        smu,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.1,
+        350,
+        1100,
+        10,
+        [1200],
+        [370, 640, 715, 765],
+        8,
+        True,
+        "user",
+    )
+
+    lia.disconnect()
+    mono.disconnect()
+    psu.disconnect()
+    smu.disconnect()
