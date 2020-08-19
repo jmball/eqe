@@ -251,7 +251,7 @@ def scan(
     lockin.reference_trigger = 1
     lockin.harmonic = 1
     lockin.input_configuration = 1
-    lockin.input_shield_grounding = 0
+    lockin.input_shield_grounding = 1
     lockin.input_coupling = 0
     lockin.reserve_mode = 1
     lockin.lowpass_filter_slope = 1
