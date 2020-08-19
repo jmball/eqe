@@ -102,7 +102,7 @@ def wait_for_lia_to_settle(lockin, timeout):
     """
     lockin.reset_data_buffers()
     lockin.start()
-    time.sleep(0.25)
+    time.sleep(0.2)
     lockin.pause()
     R = lockin.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
     old_mean_R = np.array(list(R)).mean()
@@ -116,7 +116,7 @@ def wait_for_lia_to_settle(lockin, timeout):
         else:
             lockin.reset_data_buffers()
             lockin.start()
-            time.sleep(0.25)
+            time.sleep(0.2)
             lockin.pause()
             R = lia.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
             new_mean_R = np.array(list(R)).mean()
@@ -277,13 +277,13 @@ def scan(
     lockin.set_sensitivity(26)
 
     # determine whether to turn on the synchronous filter
-    if lia.get_ref_freq() < 200:
-        lia.set_sync_status(1)
+    if lockin.get_ref_freq() < 200:
+        lockin.set_sync_status(1)
 
     # set up reading into buffer
     lockin.set_trigger_start_mode(0)
     lockin.set_end_of_buffer_mode(0)
-    lockin.set_sample_rate(12)
+    lockin.set_sample_rate(13)
     lockin.set_data_transfer_mode(0)
 
     # get array of wavelengths to measure
