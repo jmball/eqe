@@ -73,27 +73,32 @@ def wait_for_lia_to_settle(lockin, timeout):
     """
     lockin.reset_data_buffers()
     lockin.start()
-    time.sleep(0.2)
+    time.sleep(0.15)
     lockin.pause()
     R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
-    t_start = time.time()
-    while True:
-        if time.time() - t_start > timeout:
-            print("Timed out waiting for signal to settle.")
-            # init new_mean_R in case timeout is 0
-            new_mean_R = old_mean_R
-            break
-        else:
-            lockin.reset_data_buffers()
-            lockin.start()
-            time.sleep(0.2)
-            lockin.pause()
-            R = lia.get_ascii_buffer_data(1, 0, lockin.buffer_size)
-            new_mean_R = np.array(list(R)).mean()
-            if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1) is True:
-                break
-            old_mean_R = new_mean_R
+    # if first measurement is way below the range, don't wait to settle
+    if old_mean_R * 100 > lockin.sensitivities[lockin.sensitivity]:              
+        t_start = time.time()
+        while True:
+	        if time.time() - t_start > timeout:
+		        print("Timed out waiting for signal to settle.")
+		        # init new_mean_R in case timeout is 0
+		        new_mean_R = old_mean_R
+		        break
+	        else:
+		        lockin.reset_data_buffers()
+		        lockin.start()
+		        time.sleep(0.15)
+		        lockin.pause()
+		        print(lockin.buffer_size)
+		        R = lia.get_ascii_buffer_data(1, 0, lockin.buffer_size)
+		        new_mean_R = np.array(list(R)).mean()
+		        if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1):
+			        break
+		        old_mean_R = new_mean_R
+    else:
+        new_mean_R = old_mean_R
 
     return new_mean_R
 
@@ -146,7 +151,7 @@ def measure(
                 sensitivity_int = lockin.sensitivity
                 sensitivity = lockin.sensitivities[sensitivity_int]
 
-                R = wait_for_lia_to_settle(lockin, 20)
+                R = wait_for_lia_to_settle(lockin, 10)
                 if (R >= sensitivity * 0.8) and (sensitivity_int < 26):
                     new_sensitivity = sensitivity_int + 1
                 elif (R <= 0.2 * sensitivity) and (sensitivity_int > 0):
@@ -251,6 +256,8 @@ def scan(
     lockin.input_coupling = 0
     lockin.reserve_mode = 1
     lockin.lowpass_filter_slope = 1
+    lockin.set_display(1, 1, 0)
+    lockin.set_display(2, 1, 0)
 
     # set lock-in integration time/time constant
     lockin.time_constant = time_constant
@@ -354,7 +361,9 @@ if __name__ == "__main__":
 
     # connect to instruments
     lia = sr830.sr830(lia_address, **{"timeout": 30000})
-    lia.connect(output_interface=1)
+    lia.connect(output_interface=1, reset=False)
+	
+    print(lia.idn)
 
     mono = sp2150.sp2150()
     mono.connect(mono_address)
