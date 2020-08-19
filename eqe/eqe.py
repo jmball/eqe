@@ -75,7 +75,7 @@ def wait_for_lia_to_settle(lockin, timeout):
     lockin.start()
     time.sleep(0.2)
     lockin.pause()
-    R = lockin.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
+    R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
     t_start = time.time()
     while True:
@@ -89,7 +89,7 @@ def wait_for_lia_to_settle(lockin, timeout):
             lockin.start()
             time.sleep(0.2)
             lockin.pause()
-            R = lia.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
+            R = lia.get_ascii_buffer_data(1, 0, lockin.buffer_size)
             new_mean_R = np.array(list(R)).mean()
             if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1) is True:
                 break
@@ -138,12 +138,12 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
-            time_constant = lockin.time_constants[lockin.get_time_constant()]
+            time_constant = lockin.time_constants[lockin.time_constant]
             time.sleep(5 * time_constant)
             logger.debug(f"auto_gain()")
         elif auto_gain_method == "user":
             while True:
-                sensitivity_int = lockin.get_sensitivity()
+                sensitivity_int = lockin.sensitivity
                 sensitivity = lockin.sensitivities[sensitivity_int]
 
                 R = wait_for_lia_to_settle(lockin, 20)
@@ -153,7 +153,7 @@ def measure(
                     new_sensitivity = sensitivity_int - 1
                 else:
                     break
-                lockin.set_sensitivity(new_sensitivity)
+                lockin.sensitivity = new_sensitivity
         else:
             raise ValueError(
                 f"Invalid auto-gain method: {auto_gain_method}. Must be 'instr' or "
@@ -242,31 +242,31 @@ def scan(
         Dictionary of keyword arguments to pass to the handler.
     """
     # basic lock-in setup
-    lockin.set_notch_filter_status(3)
-    lockin.set_ref_source(0)
-    lockin.set_ref_trgger(1)
-    lockin.set_harmonic(1)
-    lockin.set_input_configuration(1)
-    lockin.set_input_shield_grounding(0)
-    lockin.set_input_coupling(0)
-    lockin.set_reserve_mode(1)
-    lockin.set_lowpass_filter(1)
+    lockin.line_notch_filter_status = 3
+    lockin.reference_source = 0
+    lockin.reference_trigger = 1
+    lockin.harmonic = 1
+    lockin.input_configuration = 1
+    lockin.input_shield_grounding = 0
+    lockin.input_coupling = 0
+    lockin.reserve_mode = 1
+    lockin.lowpass_filter_slope = 1
 
     # set lock-in integration time/time constant
-    lockin.set_time_constant(time_constant)
+    lockin.time_constant = time_constant
 
     # reset sensitivity to lowest setting to prevent overflow
-    lockin.set_sensitivity(26)
+    lockin.sensitivity = 26
 
     # determine whether to turn on the synchronous filter
-    if lockin.get_ref_freq() < 200:
-        lockin.set_sync_status(1)
+    if lockin.reference_frequency < 200:
+        lockin.sync_filter_status = 1
 
     # set up reading into buffer
-    lockin.set_trigger_start_mode(0)
-    lockin.set_end_of_buffer_mode(0)
-    lockin.set_sample_rate(13)
-    lockin.set_data_transfer_mode(0)
+    lockin.trigger_start_mode = 0
+    lockin.end_of_buffer_mode = 0
+    lockin.sample_rate = 13
+    lockin.data_transfer_mode = 0
 
     # get array of wavelengths to measure
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
@@ -324,7 +324,7 @@ def scan(
         logger.info(f"{data}")
 
     # reset sensitivity to lowest setting to prevent overflow
-    lockin.set_sensitivity(26)
+    lockin.sensitivity = 26
 
     # return wavelength to white
     set_wavelength(mono, 0, grating_change_wls, filter_change_wls)
@@ -353,8 +353,8 @@ if __name__ == "__main__":
     smu_address = ""
 
     # connect to instruments
-    lia = sr830.sr830(return_int=True)
-    lia.connect(lia_address, output_interface=1, **{"timeout": 30000})
+    lia = sr830.sr830(lia_address, **{"timeout": 30000})
+    lia.connect(output_interface=1)
 
     mono = sp2150.sp2150()
     mono.connect(mono_address)
