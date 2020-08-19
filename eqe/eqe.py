@@ -78,25 +78,25 @@ def wait_for_lia_to_settle(lockin, timeout):
     R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
     # if first measurement is way below the range, don't wait to settle
-    if old_mean_R * 100 > lockin.sensitivities[lockin.sensitivity]:              
+    if old_mean_R * 100 > lockin.sensitivities[lockin.sensitivity]:
         t_start = time.time()
         while True:
-	        if time.time() - t_start > timeout:
-		        print("Timed out waiting for signal to settle.")
-		        # init new_mean_R in case timeout is 0
-		        new_mean_R = old_mean_R
-		        break
-	        else:
-		        lockin.reset_data_buffers()
-		        lockin.start()
-		        time.sleep(0.15)
-		        lockin.pause()
-		        print(lockin.buffer_size)
-		        R = lia.get_ascii_buffer_data(1, 0, lockin.buffer_size)
-		        new_mean_R = np.array(list(R)).mean()
-		        if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1):
-			        break
-		        old_mean_R = new_mean_R
+            if time.time() - t_start > timeout:
+                print("Timed out waiting for signal to settle.")
+                # init new_mean_R in case timeout is 0
+                new_mean_R = old_mean_R
+                break
+            else:
+                lockin.reset_data_buffers()
+                lockin.start()
+                time.sleep(0.15)
+                lockin.pause()
+                print(lockin.buffer_size)
+                R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
+                new_mean_R = np.array(list(R)).mean()
+                if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1):
+                    break
+                old_mean_R = new_mean_R
     else:
         new_mean_R = old_mean_R
 
@@ -279,15 +279,15 @@ def scan(
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
     # turn on bias LEDs if required
-    if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
-        psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
-        psu.set_output_enable(True, 1)
-    if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
-        psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
-        psu.set_output_enable(True, 2)
-    if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
-        psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
-        psu.set_output_enable(True, 3)
+    # if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
+    #     psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
+    #     psu.set_output_enable(True, 1)
+    # if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
+    #     psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
+    # #     psu.set_output_enable(True, 2)
+    # if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
+    #     psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
+    #     psu.set_output_enable(True, 3)
 
     # apply voltage bias
     smu.setupDC(
@@ -340,9 +340,9 @@ def scan(
     smu.outOn(False)
 
     # turn off LEDs
-    psu.set_output_enable(False, 1)
-    psu.set_output_enable(False, 2)
-    psu.set_output_enable(False, 3)
+    # psu.set_output_enable(False, 1)
+    # psu.set_output_enable(False, 2)
+    # psu.set_output_enable(False, 3)
 
     return scan_data
 
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     # connect to instruments
     lia = sr830.sr830(lia_address, **{"timeout": 30000})
     lia.connect(output_interface=1, reset=False)
-	
+
     print(lia.idn)
 
     mono = sp2150.sp2150()
