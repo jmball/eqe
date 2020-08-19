@@ -1,5 +1,6 @@
 """Measure external quantum efficiency."""
 
+import math
 import logging
 import time
 import warnings
@@ -54,36 +55,6 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
     resp = mono.goto_wavelength(wl)
 
 
-def is_close(a, b, pc):
-    """Check if `b` is within a given percentage of `a`.
-
-    If both `a` and `b` are zero then the function returns `True`. If `b` is non-zero
-    but `a` is zero then a percentage cannot be calculated and the function returns
-    False.
-
-    Parameters
-    ----------
-    a : float
-        First number.
-    b : float
-        Number to compare with `a`.
-    pc : float
-        Percentage deviation to check for.
-
-    Returns
-    -------
-    is_close : bool
-        Boolean flag for whether b is close to a.
-    """
-    if a == b:
-        # handles case where both a and b are zero
-        return True
-    elif a == 0:
-        return False
-    else:
-        return abs(a - b) * 100 / a < pc
-
-
 def wait_for_lia_to_settle(lockin, timeout):
     """Wait for lock-in amplifier to settle.
 
@@ -120,7 +91,7 @@ def wait_for_lia_to_settle(lockin, timeout):
             lockin.pause()
             R = lia.get_ascii_buffer_data(1, 0, lockin.get_buffer_size())
             new_mean_R = np.array(list(R)).mean()
-            if is_close(old_mean_R, new_mean_R, 10) is True:
+            if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1) is True:
                 break
             old_mean_R = new_mean_R
 
@@ -213,7 +184,7 @@ def scan(
     num_points=76,
     grating_change_wls=None,
     filter_change_wls=None,
-    integration_time=8,
+    time_constant=8,
     auto_gain=True,
     auto_gain_method="user",
     handler=None,
@@ -257,8 +228,8 @@ def scan(
         Wavelength in nm at which to change to the grating.
     filter_change_wls : list or tuple of int or float, optional
         Wavelengths in nm at which to change filters
-    integration_time : int
-        Integration time setting for the lock-in amplifier.
+    time_constant : int
+        Time constant setting for the lock-in amplifier.
     auto_gain : bool, optional
         Automatically choose sensitivity.
     auto_gain_method : {"instr", "user"}, optional
@@ -270,8 +241,19 @@ def scan(
     handler_kwargs : dict, optional
         Dictionary of keyword arguments to pass to the handler.
     """
+    # basic lock-in setup
+    lockin.set_notch_filter_status(3)
+    lockin.set_ref_source(0)
+    lockin.set_ref_trgger(1)
+    lockin.set_harmonic(1)
+    lockin.set_input_configuration(1)
+    lockin.set_input_shield_grounding(0)
+    lockin.set_input_coupling(0)
+    lockin.set_reserve_mode(1)
+    lockin.set_lowpass_filter(1)
+
     # set lock-in integration time/time constant
-    lockin.set_time_constant(integration_time)
+    lockin.set_time_constant(time_constant)
 
     # reset sensitivity to lowest setting to prevent overflow
     lockin.set_sensitivity(26)
