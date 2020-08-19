@@ -76,6 +76,7 @@ def wait_for_lia_to_settle(lockin, timeout):
     time.sleep(0.1)
     lockin.pause()
     R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
+    phase = lockin.get_ascii_buffer_data(2, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
     # if first measurement is way below the range, don't wait to settle
     if old_mean_R * 100 > lockin.sensitivities[lockin.sensitivity]:
@@ -93,6 +94,7 @@ def wait_for_lia_to_settle(lockin, timeout):
                 lockin.pause()
                 print(lockin.buffer_size)
                 R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
+                phase = lockin.get_ascii_buffer_data(2, 0, lockin.buffer_size)
                 new_mean_R = np.array(list(R)).mean()
                 if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1):
                     break
@@ -143,6 +145,7 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
+            lockin.auto_phase()
             time_constant = lockin.time_constants[lockin.time_constant]
             time.sleep(5 * time_constant)
             logger.debug(f"auto_gain()")
