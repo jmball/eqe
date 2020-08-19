@@ -149,7 +149,6 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
-            lockin.auto_phase()
             time_constant = lockin.time_constants[lockin.time_constant]
             time.sleep(5 * time_constant)
             logger.debug(f"auto_gain()")
