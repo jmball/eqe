@@ -76,9 +76,7 @@ def wait_for_lia_to_settle(lockin, timeout):
     time.sleep(0.1)
     lockin.pause()
     R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
-    phase = lockin.get_ascii_buffer_data(2, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
-    old_mean_phase = np.array(list(phase)).mean()
     # if first measurement is way below the range, don't wait to settle
     if old_mean_R * 100 > lockin.sensitivities[lockin.sensitivity]:
         t_start = time.time()
@@ -93,14 +91,9 @@ def wait_for_lia_to_settle(lockin, timeout):
                 lockin.start()
                 time.sleep(0.1)
                 lockin.pause()
-                print(lockin.buffer_size)
                 R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
-                phase = lockin.get_ascii_buffer_data(2, 0, lockin.buffer_size)
                 new_mean_R = np.array(list(R)).mean()
-                new_mean_phase = np.array(list(phase)).mean()
-                if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1) and math.isclose(
-                    old_mean_phase, new_mean_phase, rel_tol=0.1
-                ):
+                if math.isclose(old_mean_R, new_mean_R, rel_tol=0.1):
                     break
                 old_mean_R = new_mean_R
     else:
