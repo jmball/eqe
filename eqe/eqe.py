@@ -73,7 +73,7 @@ def wait_for_lia_to_settle(lockin, timeout):
     """
     lockin.reset_data_buffers()
     lockin.start()
-    time.sleep(0.15)
+    time.sleep(0.1)
     lockin.pause()
     R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
     old_mean_R = np.array(list(R)).mean()
@@ -89,7 +89,7 @@ def wait_for_lia_to_settle(lockin, timeout):
             else:
                 lockin.reset_data_buffers()
                 lockin.start()
-                time.sleep(0.15)
+                time.sleep(0.1)
                 lockin.pause()
                 print(lockin.buffer_size)
                 R = lockin.get_ascii_buffer_data(1, 0, lockin.buffer_size)
