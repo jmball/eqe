@@ -142,8 +142,7 @@ def measure(
     if auto_gain is True:
         if auto_gain_method == "instr":
             lockin.auto_gain()
-            time_constant = lockin.time_constants[lockin.time_constant]
-            time.sleep(5 * time_constant)
+            wait_for_lia_to_settle(lockin, 10)
             logger.debug(f"auto_gain()")
         elif auto_gain_method == "user":
             while True:
@@ -245,6 +244,9 @@ def scan(
     handler_kwargs : dict, optional
         Dictionary of keyword arguments to pass to the handler.
     """
+    # basic monochromator setup
+    mono.set_scan_speed(300)
+
     # basic lock-in setup
     lockin.line_notch_filter_status = 3
     lockin.reference_source = 0
