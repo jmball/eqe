@@ -259,6 +259,7 @@ def scan(
     lockin.lowpass_filter_slope = 1
     lockin.set_display(1, 1, 0)
     lockin.set_display(2, 1, 0)
+    lockin.alarm_status = 0
 
     # set lock-in integration time/time constant
     lockin.time_constant = time_constant
