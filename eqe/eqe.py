@@ -281,15 +281,15 @@ def scan(
     wls = np.linspace(start_wl, end_wl, num_points, endpoint=True)
 
     # turn on bias LEDs if required
-    # if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
-    #     psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
-    #     psu.set_output_enable(True, 1)
-    # if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
-    #     psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
-    # #     psu.set_output_enable(True, 2)
-    # if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
-    #     psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
-    #     psu.set_output_enable(True, 3)
+    if (psu_ch1_current != 0) & (psu_ch1_voltage != 0):
+        psu.set_apply(1, psu_ch1_voltage, psu_ch1_current)
+        psu.set_output_enable(True, 1)
+    if (psu_ch2_current != 0) & (psu_ch2_voltage != 0):
+        psu.set_apply(2, psu_ch2_voltage, psu_ch2_current)
+        psu.set_output_enable(True, 2)
+    if (psu_ch3_current != 0) & (psu_ch3_voltage != 0):
+        psu.set_apply(3, psu_ch3_voltage, psu_ch3_current)
+        psu.set_output_enable(True, 3)
 
     # apply voltage bias
     smu.setupDC(
@@ -342,9 +342,9 @@ def scan(
     smu.outOn(False)
 
     # turn off LEDs
-    # psu.set_output_enable(False, 1)
-    # psu.set_output_enable(False, 2)
-    # psu.set_output_enable(False, 3)
+    psu.set_output_enable(False, 1)
+    psu.set_output_enable(False, 2)
+    psu.set_output_enable(False, 3)
 
     return scan_data
 
