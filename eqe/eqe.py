@@ -48,11 +48,11 @@ def set_wavelength(mono, wl, grating_change_wls=None, filter_change_wls=None):
     # Set grating and filter wheel position depending on wl
     if grating_change_wls is not None:
         grating = len([i for i in grating_change_wls if i < wl]) + 1
-        resp = mono.set_grating(grating)
+        mono.grating = grating
     if filter_change_wls is not None:
         filter_pos = len([i for i in filter_change_wls if i < wl]) + 1
-        resp = mono.set_filter(filter_pos)
-    resp = mono.goto_wavelength(wl)
+        mono.filter = filter_pos
+    mono.wavelength = wl
 
 
 def wait_for_lia_to_settle(lockin, timeout):
@@ -245,7 +245,7 @@ def scan(
         Dictionary of keyword arguments to pass to the handler.
     """
     # basic monochromator setup
-    mono.set_scan_speed(300)
+    mono.scan_speed = 1000
 
     # basic lock-in setup
     lockin.line_notch_filter_status = 3
@@ -362,8 +362,8 @@ if __name__ == "__main__":
     smu_address = ""
 
     # connect to instruments
-    lia = sr830.sr830(lia_address, **{"timeout": 30000})
-    lia.connect(output_interface=1, reset=False)
+    lia = sr830.sr830()
+    lia.connect(lia_address, output_interface=1, reset=False, **{"timeout": 30000})
 
     print(lia.idn)
 
