@@ -181,7 +181,7 @@ def scan(
     psu_ch3_voltage=0,
     psu_ch3_current=0,
     smu_voltage=0,
-    smu_compliance=1,
+    smu_compliance=0.1,
     start_wl=350,
     end_wl=1100,
     num_points=76,
