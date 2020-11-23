@@ -354,7 +354,7 @@ if __name__ == "__main__":
     import sp2150
     import dp800
 
-    from central_control_dev.virt import k2400
+    from centralcontrol.virt import k2400
 
     lia_address = "GPIB::8::INSTR"
     mono_address = "ASRL5::INSTR"
